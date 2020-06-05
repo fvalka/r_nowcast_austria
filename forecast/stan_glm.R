@@ -12,9 +12,11 @@ library(EpiNow)
 library(EpiSoon)
 library(tictoc)
 library(furrr)
-plan(multiprocess)
 
 source("../pipeline/load_cases_austria.R")
+
+# Settings
+prediction_days <- 45
 
 message("Loading movement data")
 apple_movement <- tidycovid19::download_apple_mtr_data(type="country_city", cached=TRUE)
@@ -65,6 +67,8 @@ pprediction <- posterior_predict(fit,
                                    driving_imputed, driving_l3, driving_l7,
                                    all=FALSE)))
 
+saveRDS(pprediction, "output/pprediction.rds")
+
 posterior_quantiles <- gather(as.data.frame(pprediction), "date", "Rt") %>%
   dplyr::group_by(date) %>% summarise(
     cri95_lower=quantile(Rt, 0.025),
@@ -89,6 +93,7 @@ ggsave("figures/latest/r-forecast.pdf", plot=r_forecast_plot, width=16, height=9
 ###############################
 # GLM Case Forecast Simulation
 ###############################
+plan(multisession)
 
 message("Performing case prediction based upon R prediction")
 simSize <- 1000
@@ -105,18 +110,23 @@ nowcast_mean <- nowcast_data %>% group_by(date) %>% summarise(
 
 message("Extend R prediction")
 dates_ppred <- ymd(names(pprediction[1,]))
-ppred_extended <- future_map(1:dim(pprediction)[1], ~ c(zoo(pprediction[.x,], dates_ppred), 
-                        zooreg(rep(mean(tail(pprediction[.x,],7)), 14), start = tail(dates_ppred,1) + days(1))))
 
+zoo_sample_and_extend <- function(data) {
+  i <- sample(1:dim(data)[1],1)
+  right_extension <- zooreg(rep(mean(tail(pprediction[i,],7)), prediction_days), start = tail(dates_ppred,1) + days(1))
+  combined <- c(zoo(pprediction[i,], dates_ppred), right_extension)
+  return(data.frame("date"=time(combined), "rt"=combined))
+}
 
 message("Predicting cases using monte carlo simulation based on nowcast, R prediction and generation intervals")
 tic()
 cases_pred_r_nowcast_raw <- future_map_dfr(1:simSize, ~ predict_cases(cases = nowcast_data[sample==sample(1:1000,1)],
-                                                                    rts = data.frame("date"=dates_ppred, "rt"=pprediction[sample(1:dim(pprediction)[1],1),]),
+                                                                    rts = zoo_sample_and_extend(pprediction),
                                                                     forecast_date = as.Date("2020-03-1"),
                                                                     serial_interval = EpiNow::covid_generation_times[,sample(1:dim(EpiNow::covid_generation_times)[2],1)]),
                                            .progress = TRUE)
 toc()
+saveRDS(cases_pred_r_nowcast_raw, "output/raw-cases-prediction.rds")
 
 cases_pred_r_nowcast_raw$sample <- ceiling(index(cases_pred_r_nowcast_raw)/length(unique(cases_pred_r_nowcast_raw$date)))
 
@@ -138,7 +148,7 @@ cases_forecast_plot <- ggplot(data=cases_ppred, aes(x=date)) +
   geom_ribbon(data=cases_ppred, aes(x=date, ymin=cri95_lower, ymax=cri95_upper, fill="cases_ppred"), alpha=0.2) +
   geom_ribbon(data=cases_ppred, aes(x=date, ymin=cri50_lower, ymax=cri50_upper, fill="cases_ppred"), alpha=0.2) +
   
-  geom_point(data=local_cases_vienna, aes(x=date, y=cases)) +
+  geom_point(data=local_cases_vienna, aes(x=date, y=cases, color="Actual Cases")) +
   
   ggtitle("Case Prediction") +
   #coord_cartesian(ylim = c(0, 200)) +
@@ -147,49 +157,4 @@ cases_forecast_plot <- ggplot(data=cases_ppred, aes(x=date)) +
 
 ggsave("figures/latest/cases-forecast.pdf", plot=cases_forecast_plot, width=16, height=9)
 
-
-message("Simulating incubation time and reporting delay on predicted cases")
-# Load delays
-delay_defs <- readRDS("../delays/data/delay_defs.rds")
-incubation_defs <- readRDS("../delays/data/incubation_defs.rds")
-
-delay_def <- EpiNow::lognorm_dist_def(mean = 5, mean_sd = 1,
-                                      sd = 3, sd_sd = 1, max_value = 30,
-                                      samples = 1, to_log = TRUE)
-
-cases_ppred_rounded <- data.frame("date"=cases_ppred$date, "cases"=round(cases_ppred$cases))
-
-# Simulate Delay
-tic()
-simulated_reported_cases <- future_map_dfr(1:10000, ~ EpiNow::adjust_infection_to_report(
-  cases_pred_r_nowcast_raw[sample==sample(1:simSize,1)],
-  delay_def = delay_defs[sample(1:dim(delay_defs)[1],1)],
-  incubation_def = incubation_defs[sample(1:dim(incubation_defs)[1],1)], 
-  reporting_effect = rep(1, 7),
-  type = "sample", return_onset = FALSE),
-  .progress = TRUE)
-toc()
-
-simulated_reported_cases_stats <- simulated_reported_cases %>%
-  dplyr::group_by(date) %>% summarise(
-    cri95_lower=quantile(cases, 0.025),
-    cri95_upper=quantile(cases, 0.975),
-    cri50_lower=quantile(cases, 0.25),
-    cri50_upper=quantile(cases, 0.75),
-    cases = mean(cases))
-
-cases_delayed_plot <- ggplot(data=cases_ppred, aes(x=date)) +
-  geom_ribbon(data=nowcast_mean, aes(x=date, ymin=cri95_lower, ymax=cri95_upper, fill="nowcast"), alpha=0.2) +
-  geom_ribbon(data=nowcast_mean, aes(x=date, ymin=cri50_lower, ymax=cri50_upper, fill="nowcast"), alpha=0.2) +
-  
-  geom_ribbon(data=simulated_reported_cases_stats, aes(x=date, ymin=cri95_lower, ymax=cri95_upper, fill="cases_ppred"), alpha=0.2) +
-  geom_ribbon(data=simulated_reported_cases_stats, aes(x=date, ymin=cri50_lower, ymax=cri50_upper, fill="cases_ppred"), alpha=0.2) +
-  
-  geom_point(data=local_cases_vienna, aes(x=date, y=cases)) +
-  
-  ggtitle("Case Prediction") +
-  theme_pubr()
-
-
-ggsave("figures/latest/cases-forecast-delayed.pdf", plot=cases_delayed_plot, width=16, height=9)
 

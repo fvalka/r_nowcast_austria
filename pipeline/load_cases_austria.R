@@ -1,8 +1,8 @@
 require(lubridate, quietly = TRUE)
 require(data.table, quietly = TRUE)
 
-load_cases_austria <- function() {
-  d_Austria_per_county <- read.csv("https://raw.githubusercontent.com/osaukh/dashcoch-AT/master/data_AT/covid19_cases_austria.csv", 
+load_cases_austria <- function(file = "https://raw.githubusercontent.com/osaukh/dashcoch-AT/master/data_AT/covid19_cases_austria.csv") {
+  d_Austria_per_county <- read.csv(file, 
                                    fileEncoding="UTF-8-BOM")
   
   dates <- ymd(d_Austria_per_county$Date[-1])

@@ -4,7 +4,7 @@ require(future, quietly = TRUE)
 require(lubridate)
 
 # Internal imports
-source("pipeline/load_cases_austria.R")
+source("../pipeline/load_cases_austria.R")
 
 ## Require for data and nowcasting
 # require(EpiNow, quietly = TRUE)
@@ -19,11 +19,11 @@ source("pipeline/load_cases_austria.R")
 NCoVUtils::reset_cache()
 
 # Load delays
-delay_defs <- readRDS("delays/data/delay_defs.rds")
-incubation_defs <- readRDS("delays/data/incubation_defs.rds")
+delay_defs <- readRDS("../delays/data/delay_defs.rds")
+incubation_defs <- readRDS("../delays/data/incubation_defs.rds")
 
 # Load cases
-cases <- load_cases_austria()
+cases <- load_cases_austria("data/cases.csv")
 
 # Load cases for Austria ------------------------------------------
 message("Loading regional case data for Austria")
