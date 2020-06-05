@@ -49,8 +49,10 @@ walking_l7 <- na.aggregate(walking_raw_l7, FUN = mean)
 r0_before <- xts(zooreg(rep(2.3, 30), end = head(time(r_mean) - days(1), 1)))
 r_extended <- c(r0_before, r_mean)
 
+message("Initializing STAN model")
 glmodel <- stan_model(file = "stan/rt_glm.stan")
 
+message("Preparing data for STAN fit")
 merged_data <- merge(
   r_mean, 
   walking_imputed, 
@@ -71,6 +73,7 @@ model_input <- list(
   K = K
 )
 
+message("Fitting STAN model")
 glm_fit <- sampling(glmodel, 
          data=model_input,
          iter=10000,
@@ -79,6 +82,7 @@ glm_fit <- sampling(glmodel,
 
 shinystan::launch_shinystan(glm_fit)
 
+message("Extracting and visualizing fit results")
 extracted_results <- extract(glm_fit,permuted=TRUE)
 glm_summary <- summary(glm_fit, probs=c(0.1,0.9))
 

@@ -8,9 +8,15 @@ data {
   vector<lower=0>[M] Rt;
 }
 
+transformed data {
+  vector[N] interaction;
+  interaction = walking .* driving;
+}
+
 parameters {
-  vector[K] beta_walking;
-  vector[K] beta_driving;
+  vector<lower=0>[K] beta_walking;
+  vector<lower=0>[K] beta_driving;
+  vector<lower=0>[K] beta_interaction;
   real alpha;
   real<lower=0> sigma;
   real<lower=0> R0;
@@ -20,8 +26,9 @@ parameters {
 model {
   sigma ~ cauchy(0., 2.5);
   alpha ~ normal(2.3, 1.0);
-  beta_walking ~ normal(0., 1.0);
-  beta_driving ~ normal(0., 1.0);
+  beta_walking ~ exponential(1);
+  beta_driving ~ exponential(1);
+  beta_interaction ~ exponential(1);
   kappa ~ normal(0., 0.5);
   R0 ~ normal(2.3, kappa);
   
@@ -29,8 +36,9 @@ model {
     real eta = alpha;
     eta += dot_product(beta_walking, walking[(m+N0-K+1):(m+N0)]);
     eta += dot_product(beta_driving, driving[(m+N0-K+1):(m+N0)]);
+    eta += dot_product(beta_interaction, interaction[(m+N0-K+1):(m+N0)]);
     eta *= R0;
-    Rt[m] ~ lognormal(eta, sigma);
+    Rt[m] ~ normal(eta, sigma);
   }
 }
 
@@ -40,7 +48,8 @@ generated quantities {
     real eta = alpha;
     eta += dot_product(beta_walking, walking[(m-K+1):(m)]);
     eta += dot_product(beta_driving, driving[(m-K+1):(m)]);
+    eta += dot_product(beta_interaction, interaction[(m-K+1):(m)]);
     eta *= R0;
-    Rt_rep[m-K+1] = lognormal_rng(eta, sigma);
+    Rt_rep[m-K+1] = normal_rng(eta, sigma);
   }
 }
