@@ -52,9 +52,11 @@ r_extended <- c(r0_before, r_mean)
 message("Initializing STAN model")
 glmodel <- stan_model(file = "stan/rt_glm.stan")
 
+r_truncated <- r_mean[1:(length(r_mean)-30)]
+
 message("Preparing data for STAN fit")
 merged_data <- merge(
-  r_mean, 
+  r_truncated, 
   walking_imputed, 
   driving_imputed, 
   all=FALSE)
@@ -68,8 +70,8 @@ model_input <- list(
   walking = as.vector(walking_imputed),
   driving = as.vector(driving_imputed),
   
-  M = length(merged_data_df$r_mean),
-  Rt = merged_data_df$r_mean,
+  M = length(merged_data_df$r_truncated),
+  Rt = merged_data_df$r_truncated,
   K = K
 )
 
@@ -80,7 +82,7 @@ glm_fit <- sampling(glmodel,
          chains=4, 
          control = list(adapt_delta=0.9))
 
-shinystan::launch_shinystan(glm_fit)
+# shinystan::launch_shinystan(glm_fit)
 
 message("Extracting and visualizing fit results")
 extracted_results <- extract(glm_fit,permuted=TRUE)

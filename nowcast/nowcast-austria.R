@@ -23,7 +23,7 @@ delay_defs <- readRDS("../delays/data/delay_defs.rds")
 incubation_defs <- readRDS("../delays/data/incubation_defs.rds")
 
 # Load cases
-cases <- load_cases_austria("data/cases.csv")
+cases <- load_cases_austria()
 
 # Load cases for Austria ------------------------------------------
 message("Loading regional case data for Austria")
@@ -42,8 +42,7 @@ EpiNow::regional_rt_pipeline(
   horizon = 14,
   nowcast_lag = 8,
   rt_samples = 15,
-  #merge_actual_onsets = FALSE,
-  approx_delay = FALSE,
+  approx_delay = TRUE,
   report_forecast = TRUE, 
   verbose = TRUE,
   forecast_model = function(...) {
@@ -52,15 +51,3 @@ EpiNow::regional_rt_pipeline(
                                                                cmbn_args = list(weights = "inv_var")), ...)
   }
 )
-
-
-future::plan("sequential")
-
-# Summarise results -------------------------------------------------------
-
-EpiNow::regional_summary(results_dir = "austria",
-                         summary_dir = "austria-summary",
-                         target_date = "latest",
-                         region_scale = "Country",
-                         csv_region_label = "country",
-                         log_cases = TRUE)
