@@ -14,9 +14,9 @@ transformed data {
 }
 
 parameters {
-  vector<lower=0>[K] beta_walking;
-  vector<lower=0>[K] beta_driving;
-  vector<lower=0>[K] beta_interaction;
+  vector[K] beta_walking;
+  vector[K] beta_driving;
+  vector[K] beta_interaction;
   real alpha;
   real<lower=0> sigma;
   real<lower=0> R0;
@@ -26,9 +26,9 @@ parameters {
 model {
   sigma ~ cauchy(0., 2.5);
   alpha ~ normal(2.3, 1.0);
-  beta_walking ~ exponential(1);
-  beta_driving ~ exponential(1);
-  beta_interaction ~ exponential(1);
+  beta_walking ~ normal(0.,2.);
+  beta_driving ~ normal(0.,2.);
+  beta_interaction ~ normal(0.,2.);
   kappa ~ normal(0., 0.5);
   R0 ~ normal(2.3, kappa);
   
