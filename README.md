@@ -8,7 +8,7 @@ to regional COVID-19 case data for Austria.
 ## Data Source
 Austrian regional data is taken from the 
 Complexity Science Hubs
-[dashboard data](https://github.com/osaukh/dashcoch-AT/) which aggregates
+[dashboard data](https://github.com/osaukh/dashcoch-AT/) which has a time series of 
 daily data updates from the 
 [Bundesministerium für Soziales, Gesundheit, Pflege und Konsumentenschutz](https://www.sozialministerium.at/Informationen-zum-Coronavirus/Neuartiges-Coronavirus-(2019-nCov).html)
 publications. 
