@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+nowcast/austria/
+nowcast/austria-summary/
+forecast/output/
+forecast/figures/
